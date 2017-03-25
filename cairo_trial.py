@@ -126,9 +126,11 @@ def create_single_ball_world_gray():
 	return im, world	
 
 
-def ball_world_step(i, model):
-	model.step()
-	im = model.generate_image()
+def ball_world_step(i, model, doIm=True):
+	result = model.step()
+	im = None
+	if result and doIm:
+		im = model.generate_image()
 	return im
 
 ##

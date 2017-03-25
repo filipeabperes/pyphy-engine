@@ -176,8 +176,8 @@ class Point:
 
 def theta2dir(theta):
 	'''
-		theta: anti-clockwise and from the x-axis.
-					 in degrees 
+	theta: anti-clockwise and from the x-axis.
+	in degrees 
 	'''
 	assert -180 < theta <= 180	
 	theta = np.pi * (theta / 180.0)
@@ -401,6 +401,7 @@ class Circle:
 		'''
 			v21: velocity of 2 wrt 1
 		'''
+		badResult = np.inf,None,None,None
 		p1, r1 = self.c_, self.r_
 		p2, r2 = circ2.c_, circ2.r_
 		p11 = p1 - p1
@@ -415,7 +416,7 @@ class Circle:
 		bigC = Circle(R, p11)
 		isIntersect = bigC.is_intersect_line(Line(p21, p21 + v21))
 		if not isIntersect:
-			return np.inf,None,None
+			return badResult
 
 		#Now intersection is guaranteed to happen
 		#We have two sides of a triangle R, dBall and a third angle,
@@ -435,12 +436,12 @@ class Circle:
 		theta = c1c2.get_angle_between(v21) 
 		if np.abs(theta) > np.pi/2:
 			pdb.set_trace()
-		assert np.abs(theta) < np.pi/2
+		assert np.abs(theta) <= np.pi/2
 		theta = np.abs(theta)
-		if theta == 0:
+		if theta == 0 or theta==np.pi/2:
 			dist = dBall - R
 		else:
-			sinC   = dBall /(R / np.sin(theta))
+			sinC   = max(-1.0,min(1.0,dBall /(R / np.sin(theta))))
 			thetaC = np.pi - math.asin(sinC)
 			thetaA = np.pi - (thetaC + theta)
 			#print "Theta:", theta, "thetaA:", thetaA, "thetaC:", thetaC
@@ -451,7 +452,7 @@ class Circle:
 		#print "Distance between balls: ", dist, "speed: ", speed	
 		#Get time to collision
 		if speed == 0:
-			return np.Inf, None, None
+			return badResulst
 		vDir  = Point.from_self(v21)
 		vDir.make_unit_norm()
 		tCol  = dist / speed 
@@ -463,7 +464,7 @@ class Circle:
 		lCenters = Line(newP2, p11)
 		colNrml   = lCenters.get_normal()
 		newP2 = newP2 + p1
-		return tCol, newP2, colNrml
+		return tCol, newP2, colNrml,dist
 		
 ##
 # Note this not specifically a rectangular BBox. It can be in general be 
@@ -611,4 +612,3 @@ class Bbox:
 		pts.append(self.get_intersection_with_line(gm.Line(bbox.lBot_, bbox.lBot_ + vel))[0])
 		pts.append(self.get_intersection_with_line(gm.Line(bbox.rBot_, bbox.rBot_ + vel))[0])
 		pts.append(self.get_intersection_with_line(gm.Line(bbox.rTop_, bbox.rTop_ + vel))[0])
-	

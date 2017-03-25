@@ -10,7 +10,7 @@ import os
 import scipy.io as sio
 import scipy.misc as scm
 import pickle
-import glog
+#import glog
 #Custom Modules
 import dynamics as dy
 import geometry as gm
@@ -387,7 +387,8 @@ class Ball:
 		self.vel_       = initVel
 		self.futureVel_ = gm.Point(0,0)
 		self.density_   = density
-		self.mass_      = (4/3.0) * np.pi * np.power(self.radius_/10.0,3) * density
+		self.mass_      =  density # independent of ball size
+		#self.mass_      = (4/3.0) * np.pi * np.power(self.radius_/10.0,3) * density
 		self.make_data()
 
 	@classmethod
@@ -533,13 +534,15 @@ class Arrow:
 
 	
 class Dynamics:
-	def __init__(self, world, g=0, deltaT=0.01):
+	def __init__(self, world, g=0, deltaT=0.01, aFriction=0, aColDamp=0):
 		'''
 			g: gravity, since the (0,0) is top left, gravity will be positive. 
 		'''
 		self.world_  = world
 		self.g_      = gm.Point(0, g)
 		self.deltaT_ = deltaT
+		self.aFriction_ = aFriction
+		self.aColDamp_ = aColDamp
 		#Record which objects have been stepped and which have not been.
 		self.isStep_ = co.OrderedDict()
 		#The collision Queue
@@ -548,7 +551,7 @@ class Dynamics:
 		self.tCol_    = co.OrderedDict()
 		self.objCol_  = co.OrderedDict()
 		self.nrmlCol_ = co.OrderedDict()
-		self.ptCol_   = co.OrderedDict() #Expected point of coll
+		self.ptCol_   = co.OrderedDict() #Expected point of coll        
 		for name in self.get_dynamic_object_names():
 			self._include_object(name)		
 	
@@ -576,7 +579,13 @@ class Dynamics:
 		#Add all the objects to the collision queue	
 		self.add_all_dynamic_collision_queue()
 
-	#Apply force on an object
+	def set_aFriction(self, aFriction):
+		self.aFriction_ = aFriction
+
+	def set_aColDamp(self, aColDamp):
+		self.aColDamp_ = aColDamp
+    
+    #Apply force on an object
 	def apply_force(self, objName, force, forceT=None):
 		'''
 			forceT: amount of time for which force is applied. 
@@ -597,13 +606,25 @@ class Dynamics:
 	def get_dynamic_object_names(self):
 		return self.world_.get_dynamic_object_names()
 
+	def get_acceleration(self, name,vel=None):
+		if vel==None:
+			obj = self.get_object(name)
+			vel = obj.get_velocity()
+			#import pdb;pdb.set_trace()
+		a = self.g_-self.aFriction_*self.world_.objects_[name].mass_*vel.get_scaled_vector(1.0)
+		return a,vel
+
 	def move_object(self, obj, deltaT, name):
 		pos = obj.get_mutable_position()
 		vel = obj.get_mutable_velocity()
+        # gravity+friction
+		a,_= self.get_acceleration(name,vel)
 		#Update position: s = ut + 0.5at^2
-		pos = pos + (deltaT * vel) + ((0.5 * deltaT * deltaT) * self.g_)
+		pos = pos + (deltaT * vel) + ((0.5 * deltaT * deltaT) * a)
 		#Update velocity: v = u + at
-		vel = vel + (deltaT * self.g_)
+		vel = vel + (deltaT * a)
+		if abs(vel.mag())<1e-10:
+			vel = vel*0
 		obj.set_position(pos)
 		obj.set_velocity(vel)
 		self.tCol_[name] = self.tCol_[name] - deltaT
@@ -619,6 +640,7 @@ class Dynamics:
 			return
 		oldVel = obj.get_velocity()
 		self.move_object(obj, deltaT, name)
+
 		#If a sationary object has been set to motion, then perform resolve_collision
 		#if oldVel.mag() == 0 and (obj.get_velocity()).mag() > 0:
 		#	self.resolve_collision(obj, name) 
@@ -629,31 +651,59 @@ class Dynamics:
 		tStep  = 0 #Amount of time already stepped.
 		#Make a move by self.deltaT_ 
 		count = 0
+		mntCol = 0
+		mntStop = np.inf
 		while True:
-			#Go through the collision que
-			N = len(self.colQueue_)
-			for i in range(N):
-				name = self.colQueue_.popleft()
-				obj  = self.get_object(name)
-				self.time_to_collide_all(obj, name)
-			#Step by the amount that the first object will collide
-			#or otherwise step by deltaT. 
-			mntCol = np.inf
-			for name in self.get_dynamic_object_names():
-				obj = self.get_object(name)
-				#print name, 'toc', self.tCol_[name], "velocity is ", obj.get_velocity(), "future vel ", obj.futureVel_
-				self.isStep_[name] = False
-				mntCol = min(mntCol, self.tCol_[name])
-			t = min(mntCol, self.deltaT_ - tStep)
-			#print "t is", t
-			if t <=0:
-				break
-			#print "Did not break"
-			#Step every object
-			for name in self.get_dynamic_object_names():
-				self.step_object(self.world_.get_object(name), name, deltaT=t)
-			tStep += t		
-			count += 1
+			if mntStop>mntCol:
+				#Go through the collision que
+				N = len(self.colQueue_)
+				for i in range(N):
+					name = self.colQueue_.popleft()
+					obj  = self.get_object(name)
+					self.time_to_collide_all(obj, name)
+                #Step by the amount that the first object will collide
+                #or otherwise step by deltaT. 
+				mntCol = np.inf
+				for name in self.get_dynamic_object_names():
+					obj = self.get_object(name)
+					self.isStep_[name] = False
+					mntCol = min(mntCol, self.tCol_[name])
+					mntStop = np.inf
+				if self.aFriction_>0:
+					for name in self.get_dynamic_object_names():
+						aa,vv = self.get_acceleration(name)
+						tStop = np.inf
+						if aa.x()!=0:
+							tStop = -vv.x()/aa.x()
+						elif vv.x()==0:
+							tStop=0
+						if aa.y()!=0:
+							tStop = max(tStop,-vv.y()/aa.y())
+						elif vv.y()==0:
+							tStop=max(tStop,0)
+						else:
+							tStop = np.inf
+						if tStop<1e-10:
+							tStop = round(tStop,10)
+							if tStop<0:
+								tStop = np.inf
+						if tStop>0: # tStop=0: object is stopped
+							mntStop = min(mntStop, tStop)
+
+                # check if any event before the timestamp
+				t = min(mntCol, self.deltaT_ - tStep)
+                #print "t is", t
+				if t <=0 and self.deltaT_-tStep <= 0: # running out of time
+					break
+                #print "Did not break"
+                #Step every object
+				for name in self.get_dynamic_object_names():
+					self.step_object(self.world_.get_object(name), name, deltaT=t)
+
+				self.add_all_dynamic_collision_queue()
+				tStep += t
+				count += 1
+		return True
  
 	#Resolve the collisions
 	def resolve_collision(self, obj, name, deltaT):
@@ -670,7 +720,7 @@ class Dynamics:
 			#Compute the new velocity
 			vel  = nrml.reflect_normal(obj.get_velocity()) 
 			#Set the new velocity
-			obj.set_velocity(vel)
+			obj.set_velocity(vel * (1-self.aColDamp_))
 			self.add_all_dynamic_collision_queue()			
 			#self.colQueue_.append((obj, name))
 	
@@ -708,12 +758,12 @@ class Dynamics:
 		if (isinstance(obj1, Ball) and (
 				isinstance(obj2, Wall) or isinstance(obj2, GenericWall))):
 		
-			toc, nrmlCol, ptCol = dy.get_toc_ball_wall(obj1, obj2)	
+			toc, nrmlCol, ptCol, futureVel = dy.get_toc_ball_wall(obj1, obj2,self.aFriction_,self.aColDamp_)	
 		elif (isinstance(obj1, Ball) and isinstance(obj2, Ball)):
-			toc, nrmlCol, ptCol = dy.get_toc_ball_ball(obj1, obj2, name1, name2)	
+			toc, nrmlCol, ptCol, futureVel = dy.get_toc_ball_ball(obj1, obj2, name1, name2,self.aFriction_,self.aColDamp_)	
 		else:
 			raise Exception('Collision type not recognized')
-		return toc, nrmlCol, ptCol	
+		return toc, nrmlCol, ptCol, futureVel
 	
 	#Get time to collision of the object "obj" with name "name" with
 	#all other objects in the world. 
@@ -725,12 +775,13 @@ class Dynamics:
 		for an in allNames:
 			if an == name:
 				continue
-			toc, nrmlCol, ptCol = self.time_to_collide(obj, self.get_object(an), name, an)
+			toc, nrmlCol, ptCol, futureVel = self.time_to_collide(obj, self.get_object(an), name, an)
 			if toc < self.tCol_[name]:
 				self.tCol_[name]    = toc
 				self.objCol_[name]  = (self.get_object(an), an)
 				self.nrmlCol_[name] = nrmlCol
 				self.ptCol_[name]   = ptCol 
+                                obj.futureVel_      = futureVel
 	
 	#Get the image
 	def generate_image(self):
@@ -755,6 +806,9 @@ class Dynamics:
 	#Get object position
 	def get_object_position(self, name):
 		return self.world_.get_object_position(name)
+
+	def get_object_velocity(self, name):
+		return self.world_.get_object_velocity(name)
 
 	#delete an object
 	def del_object(self, name):
@@ -970,6 +1024,9 @@ class World(object):
 	#
 	def get_object_position(self, objName):
 		return self.objects_[objName].get_position()
+    
+	def get_object_velocity(self, objName):
+		return self.objects_[objName].get_velocity()
 	
 	#
 	def set_object_position(self, objName, newPos):
