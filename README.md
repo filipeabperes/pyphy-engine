@@ -3,12 +3,16 @@ Improved version of pyphy-engine, used in "Learning Visual Predictive Models of 
 
 ### Usage
 1. output with default parameters (log for position and velocity)
+
 `python main.py --outDir result/`
 2. output frames
+
 `python main.py --outDir result/ --outIm True`
 3. change dynamics: friction and collision damp
+
 `python main.py --outDir result/ --outIm True --aFric 10 --aDamp 0.5`
 4. change setup: ball (num, size, mass, init state), table (shape)
+
 `python main.py --outDir result/ --outIm True --ballNum 2 --ballRadius 10 --ballMass 15 --ballInit 5 --tableType 0 `
 
 ### Improvement
