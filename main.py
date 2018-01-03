@@ -59,14 +59,13 @@ def createExp(numBall=8,tableType=0,ballR=10):
     im = world.generate_image()
     return im, world
 
-def saveExp(Iout='./image_%04d.jpg', Lout=['./test_p.txt','./test_v.txt'],numBall=8,aF=200,aD=0,tableType=0,ballR=10,ballM=1,Pinit=[]):
+def saveExp(Iout='./image_%04d.jpg', Lout=['./test_p.txt','./test_v.txt'],numBall=8,aF=200,aD=0,tableType=0,ballR=10,ballM=1,Pinit=[],numF=100):
     im,world = createExp(numBall,tableType,ballR)
     model = pm.Dynamics(world,aFriction=aF,aColDamp=aD)
     # set initial speed
     #v0=600;vDelta=200;
     #v0=400;vDelta=200;
     v0=500;vDelta=500;
-    numF=100
     # set mass
     for bb in model.world_.dynamic_.keys():
         model.world_.dynamic_[bb].set_mass(ballM)
@@ -128,7 +127,8 @@ if __name__ == "__main__":
     parser.add_argument('--ballInit', default="", type=str)
     parser.add_argument('--tableType', default=0, type=int)
     parser.add_argument('--outDir', default='./result/', type=str)
-    parser.add_argument('--outIm', default=False, type=bool)    
+    parser.add_argument('--outIm', default=True, type=bool)    
+    parser.add_argument('--numFrames', default=100, type=int)    
 
     param = parser.parse_args()
 
@@ -150,4 +150,4 @@ if __name__ == "__main__":
         imN = outN+'im/'+fn2+'/image_%04d.png'
     
     
-    saveExp(imN,logN,param.ballNum,param.aFric,param.aDamp,param.tableType,param.ballRadius,param.ballMass,param.ballInit)
+    saveExp(imN,logN,param.ballNum,param.aFric,param.aDamp,param.tableType,param.ballRadius,param.ballMass,param.ballInit,param.numFrames)
