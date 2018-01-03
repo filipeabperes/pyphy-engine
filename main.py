@@ -63,9 +63,9 @@ def createExp(numBall=8, tableType=0, ballR=10):
 
 
 def saveExp(Iout='./image_%04d.jpg', Lout=['./test_p.txt', './test_v.txt'], numBall=8, aF=200, aD=0, tableType=0,
-            ballR=10, ballM=1, Pinit=[], numF=100):
+            ballR=10, ballM=1, Pinit=[], numF=100, fps=100):
     im, world = createExp(numBall, tableType, ballR)
-    model = pm.Dynamics(world, aFriction=aF, aColDamp=aD)
+    model = pm.Dynamics(world, aFriction=aF, aColDamp=aD, deltaT=1.0/fps)
     # set initial speed
     # v0=600;vDelta=200;
     # v0=400;vDelta=200;
@@ -142,6 +142,7 @@ if __name__ == "__main__":
     parser.add_argument('--outDir', default='./result/', type=str)
     parser.add_argument('--outIm', default=True, type=bool)
     parser.add_argument('--numFrames', default=100, type=int)
+    parser.add_argument('--fps', default=100, type=int)
 
     param = parser.parse_args()
 
@@ -165,4 +166,4 @@ if __name__ == "__main__":
         imN = outN + 'im/' + fn2 + '/image_%04d.png'
 
     saveExp(imN, logN, param.ballNum, param.aFric, param.aDamp, param.tableType, param.ballRadius, param.ballMass,
-            param.ballInit, param.numFrames)
+            param.ballInit, param.numFrames, param.fps)
