@@ -307,9 +307,9 @@ class Wall:
 		'''
 			xSz, ySz: Size of the canvas on which imprint has to be made. 
 		'''
-		y, x  = self.pos_.y(), self.pos_.x()		
+		y, x  = int(self.pos_.y()), int(self.pos_.x())
 		srcIm = np.zeros((ySz, xSz, 4), dtype=np.uint8)
-		srcIm[y : y + self.sz_.y(), x : x + self.sz_.x(),:] = self.data_.im[:] 
+		srcIm[y : y + int(self.sz_.y()), x : x + int(self.sz_.x()),:] = self.data_.im[:] 
 		surface = cairo.ImageSurface.create_for_data(srcIm, 
 								cairo.FORMAT_ARGB32, xSz, ySz)
 		cr.set_source_surface(surface)		
@@ -437,8 +437,8 @@ class Ball:
 		yLen, xLen = yBallEn - yBallSt, xBallEn - xBallSt
 		if yLen >0 and xLen > 0:
 			yImSt, xImSt = max(0, y), max(0, x)
-			srcIm[yImSt:yImSt+yLen, xImSt:xImSt+xLen,:] =\
-								 self.data_.im[yBallSt:yBallEn, xBallSt:xBallEn,:] 
+			srcIm[int(yImSt):int(yImSt+yLen), int(xImSt):int(xImSt+xLen),:] =\
+								 self.data_.im[int(yBallSt):int(yBallEn), int(xBallSt):int(xBallEn),:] 
 		surface = cairo.ImageSurface.create_for_data(srcIm, 
 								cairo.FORMAT_ARGB32, xSz,ySz)
 		cr.set_source_surface(surface)		
