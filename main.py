@@ -7,6 +7,13 @@ import sys
 import argparse
 
 
+RED = (1.0, 0.0, 0.0)
+GREEN = (0.0, 1.0, 0.0)
+BLUE = (0.0, 0.0, 1.0)
+COLORS = [RED, GREEN, BLUE]
+NUM_COLORS = len(COLORS)
+
+
 def randBallPos(xSz=256, ySz=256, wThick=5, numBall=10, ballRadius=5, tableType=0):
     # random initialize multiple balls without overlapping
     numLeft = numBall
@@ -55,7 +62,8 @@ def createExp(numBall=8, tableType=0, ballR=10):
 
     bOther = [None] * numBall
     for i in range(numBall):
-        bOther[i] = pm.BallDef(fColor=pm.Color(0.0, 0.0, 1.0), radius=ballRadius, sThick=0)
+        color_index = i % NUM_COLORS
+        bOther[i] = pm.BallDef(fColor=pm.Color(*COLORS[color_index]), radius=ballRadius, sThick=0)
         world.add_object(bOther[i], initPos=gm.Point(bPos[i][0], bPos[i][1]))
 
     im = world.generate_image()
